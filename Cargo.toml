@@ -10,7 +10,7 @@ license = "Unlicense"
 edition = "2018"
 
 [dependencies]
-filebuffer = "0.4"
+filebuffer = "1"
 libc = "0.2.4"
 
 [dev-dependencies]
