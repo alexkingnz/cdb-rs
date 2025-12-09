@@ -7,11 +7,10 @@ homepage = "https://github.com/bruceg/cdb-rs"
 repository = "https://github.com/bruceg/cdb-rs"
 readme = "README.md"
 license = "Unlicense"
-edition = "2018"
+edition = "2024"
 
 [dependencies]
 filebuffer = "1"
-libc = "0.2.4"
 
 [dev-dependencies]
 criterion = "0.2"
