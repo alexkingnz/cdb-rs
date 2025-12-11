@@ -169,6 +169,7 @@ impl CDBMake {
 ///     Ok(())
 /// }
 /// ```
+
 pub struct CDBWriter {
     dstname: String,
     tmpname: String,

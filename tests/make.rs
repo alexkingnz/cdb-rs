@@ -9,6 +9,7 @@ macro_rules! noerr {
     };
 }
 
+#[cfg(feature = "std")]
 #[test]
 fn test_make() {
     let filename = "tests/make.cdb";

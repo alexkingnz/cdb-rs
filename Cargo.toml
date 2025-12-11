@@ -10,7 +10,12 @@ license = "Unlicense"
 edition = "2024"
 
 [dependencies]
-filebuffer = "1"
+filebuffer = { version = "1", optional = true }
+libc = { version = "0.2.178", default-features = false }
+
+[features]
+std = ["dep:filebuffer"]
+default = ["std"]
 
 [dev-dependencies]
 criterion = "0.2"

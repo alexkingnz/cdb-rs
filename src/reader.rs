@@ -1,11 +1,19 @@
+#[cfg(feature = "std")]
 use filebuffer::FileBuffer;
-use std::cmp::min;
-use std::io;
-use std::path;
+use core::cmp::min;
+#[cfg(feature = "std")]
+use std::{io, path};
+#[cfg(not(feature = "std"))]
+use crate::{Vec, vec, ToString};
+#[cfg(not(feature = "std"))]
+use crate::nostd::*;
+#[cfg(not(feature = "std"))]
+use libc;
 
 use crate::hash::hash;
 use crate::uint32;
 
+#[cfg(feature = "std")]
 pub use std::io::Result;
 
 const KEYSIZE: usize = 32;
@@ -15,6 +23,14 @@ const KEYSIZE: usize = 32;
 /// # Example
 ///
 /// ```
+/// #[cfg(not(feature = "std"))]
+/// let cdb = {
+///     use libc;
+///     let fd = unsafe { libc::open(c"tests/test1.cdb".as_ptr() as *const libc::c_char, libc::O_RDONLY) };
+///     if fd == -1 {panic!("Unable to open file tests/test1.cdb")}
+///     cdb::CDB::from_filedes(fd).unwrap()
+/// };
+/// #[cfg(feature = "std")]
 /// let cdb = cdb::CDB::open("tests/test1.cdb").unwrap();
 ///
 /// for result in cdb.find(b"one") {
@@ -26,9 +42,16 @@ pub struct CDB {
     size: usize,
 }
 
+#[cfg(feature = "std")]
 fn err_badfile<T>() -> Result<T> {
     Err(io::Error::new(io::ErrorKind::Other, "Invalid file format"))
 }
+
+#[cfg(not(feature = "std"))]
+fn err_badfile<T>() -> Result<T> {
+    Err(Error::new("Invalid file format".to_string()))
+}
+
 
 impl CDB {
     /// Opens the named file and returns the CDB reader.
@@ -38,8 +61,18 @@ impl CDB {
     /// ```
     /// let cdb = cdb::CDB::open("tests/test1.cdb").unwrap();
     /// ```
+    #[cfg(feature = "std")]
     pub fn open<P: AsRef<path::Path>>(filename: P) -> Result<CDB> {
         let file = FileBuffer::open(&filename)?;
+        if file.len() < 2048 + 8 + 8 || file.len() > 0xffffffff {
+            return err_badfile();
+        }
+        let size = file.len();
+        Ok(CDB { file, size })
+    }
+    #[cfg(not(feature = "std"))]
+    pub fn from_filedes(fd: libc::c_int) -> Result<CDB> {
+        let file = FileBuffer::from_filedes(fd)?;
         if file.len() < 2048 + 8 + 8 || file.len() > 0xffffffff {
             return err_badfile();
         }
@@ -92,6 +125,14 @@ impl CDB {
     /// # Examples
     ///
     /// ```
+    /// #[cfg(not(feature = "std"))]
+    /// let cdb = {
+    ///     use libc;
+    ///     let fd = unsafe { libc::open(c"tests/test1.cdb".as_ptr() as *const libc::c_char, libc::O_RDONLY) };
+    ///     if fd == -1 {panic!("Unable to open file tests/test1.cdb")}
+    ///     cdb::CDB::from_filedes(fd).unwrap()
+    /// };
+    /// #[cfg(feature = "std")]
     /// let cdb = cdb::CDB::open("tests/test1.cdb").unwrap();
     /// if let Some(record) = cdb.get(b"one") {
     ///     println!("{:?}", record.unwrap());
@@ -107,6 +148,14 @@ impl CDB {
     /// # Examples
     ///
     /// ```
+    /// #[cfg(not(feature = "std"))]
+    /// let cdb = {
+    ///     use libc;
+    ///     let fd = unsafe { libc::open(c"tests/test1.cdb".as_ptr() as *const libc::c_char, libc::O_RDONLY) };
+    ///     if fd == -1 {panic!("Unable to open file tests/test1.cdb")}
+    ///     cdb::CDB::from_filedes(fd).unwrap()
+    /// };
+    /// #[cfg(feature = "std")]
     /// let cdb = cdb::CDB::open("tests/test1.cdb").unwrap();
     ///
     /// for result in cdb.find(b"one") {
@@ -122,6 +171,14 @@ impl CDB {
     /// # Examples
     ///
     /// ```
+    /// #[cfg(not(feature = "std"))]
+    /// let cdb = {
+    ///     use libc;
+    ///     let fd = unsafe { libc::open(c"tests/test1.cdb".as_ptr() as *const libc::c_char, libc::O_RDONLY) };
+    ///     if fd == -1 {panic!("Unable to open file tests/test1.cdb")}
+    ///     cdb::CDB::from_filedes(fd).unwrap()
+    /// };
+    /// #[cfg(feature = "std")]
     /// let cdb = cdb::CDB::open("tests/test1.cdb").unwrap();
     /// for result in cdb.iter() {
     ///     let (key, value) = result.unwrap();
