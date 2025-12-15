@@ -66,10 +66,7 @@
 //! # fn main() {}
 //! # #[cfg(not(feature = "std"))]
 //! fn main() {
-//!     extern crate alloc;
-//!     use alloc::vec::Vec;
-//!     use no_std_io::io::{Cursor, Write};
-//!     let mut f = Cursor::new(Vec::new());
+//!     let mut f = tumu_cdb::vecbuf::VecBuf::new();
 //!     let mut cdb = tumu_cdb::CDBMake::new(&mut f).unwrap();
 //!     cdb.add(b"one", b"Hello, ").unwrap();
 //!     cdb.add(b"one", b"world!\n").unwrap();
@@ -85,15 +82,12 @@
 //!  * [Wikipedia](https://en.wikipedia.org/wiki/Cdb_(software))
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[cfg(all(target_family = "windows", not(feature = "std")))]
-compile_error!("The Standard library must be enabled for Windows.");
-
-
 mod hash;
 mod filebuffer;
 mod reader;
 mod uint32;
 mod writer;
+pub mod vecbuf;
 
 #[cfg(not(feature = "std"))]
 extern crate alloc;

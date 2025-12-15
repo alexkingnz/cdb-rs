@@ -45,6 +45,9 @@ fn err_toobig<T>() -> Result<T> {
 /// # Example
 ///
 /// ```no_run
+/// # #[cfg(not(feature = "std"))]
+/// # fn main() {}
+/// # #[cfg(feature = "std")]
 /// fn main() -> std::io::Result<()> {
 ///     let file = std::fs::File::create("temporary.cdb")?;
 ///     let mut cdb = tumu_cdb::CDBMake::new(file)?;
@@ -58,10 +61,13 @@ fn err_toobig<T>() -> Result<T> {
 /// # no_std example
 ///
 /// ```
+/// # #[cfg(feature = "std")]
+/// # fn main() {}
 /// use libc;
 /// use no_std_io::io;
+/// # #[cfg(not(feature = "std"))]
 /// fn main() -> io::Result<()> {
-///     let mut cdb = tumu_cdb::CDBMake::new(io::Cursor::new(Vec::new()))?;
+///     let mut cdb = tumu_cdb::CDBMake::new(tumu_cdb::vecbuf::VecBuf::new())?;
 ///     cdb.add(b"one", b"Hello,")?;
 ///     cdb.add(b"two", b"world!")?;
 ///     let v = cdb.finish()?.into_inner();

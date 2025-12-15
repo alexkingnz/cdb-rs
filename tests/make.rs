@@ -5,41 +5,31 @@ use tumu_cdb as cdb;
 
 macro_rules! noerr {
     ( $e:expr ) => {
-        if let Err(x) = $e {
-            panic!("{}", x);
+        match $e {
+            Ok(r) => r,
+            Err(x) => panic!("{}", x),
         }
     };
 }
 
-#[cfg(not(feature = "std"))]
+const FILENAME: &str = "tests/make.cdb";
+
 #[test]
 fn test_make() {
-    extern crate alloc;
-    use alloc::vec::Vec;
-    use no_std_io::io::Cursor;
-
-    let mut cdb = cdb::CDBMake::new(Cursor::new(Vec::new())).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut cdb = cdb::CDBMake::new(cdb::vecbuf::VecBuf::new()).unwrap();
+    #[cfg(feature = "std")]
+    let mut cdb = cdb::CDBWriter::create(FILENAME).unwrap();
     noerr!(cdb.add(b"one", b"Hello"));
     noerr!(cdb.add(b"two", b"Goodbye"));
     noerr!(cdb.add(b"one", b", World!"));
     noerr!(cdb.add(b"this key will be split across two reads", b"Got it."));
-    noerr!(cdb.finish());
+    let v = noerr!(cdb.finish());
 
-}
-
-#[cfg(feature = "std")]
-#[test]
-fn test_make() {
-    let filename = "tests/make.cdb";
-
-    let mut cdb = cdb::CDBWriter::create(filename).unwrap();
-    noerr!(cdb.add(b"one", b"Hello"));
-    noerr!(cdb.add(b"two", b"Goodbye"));
-    noerr!(cdb.add(b"one", b", World!"));
-    noerr!(cdb.add(b"this key will be split across two reads", b"Got it."));
-    noerr!(cdb.finish());
-
-    let cdb = cdb::CDB::open(filename).unwrap();
+    #[cfg(not(feature = "std"))]
+    let cdb = cdb::CDB::copy_from_slice(v.get_ref()).unwrap();
+    #[cfg(feature = "std")]
+    let cdb = cdb::CDB::open(FILENAME).unwrap();
     assert_eq!(cdb.find(b"two").next().unwrap(), b"Goodbye");
     assert_eq!(
         cdb.find(b"this key will be split across two reads")
@@ -66,5 +56,6 @@ fn test_make() {
     //assert_eq!(next.0, b"this key will be split across two reads");
     assert_eq!(next.1, b"Got it.");
 
-    noerr!(fs::remove_file(filename));
+    #[cfg(feature = "std")]
+    noerr!(fs::remove_file(FILENAME));
 }

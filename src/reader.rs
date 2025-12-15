@@ -67,6 +67,11 @@ impl CDB {
         let size = file.len();
         Ok(CDB { file, size })
     }
+    pub fn copy_from_slice(s: &[u8]) -> Result<CDB> {
+        let file = FileBuffer::copy_from_slice(s)?;
+        let size = s.len();
+        Ok(CDB { file, size })
+    }
 
     fn read(&self, len: usize, pos: u32) -> Option<&[u8]> {
         let pos = pos as usize;

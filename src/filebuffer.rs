@@ -13,9 +13,7 @@ use core::ops::Deref;
 use core::ptr;
 use libc;
 
-#[allow(dead_code)]
 pub struct FileBuffer {
-    page_size: usize,
     buffer: *const u8,
     length: usize,
 }
@@ -28,8 +26,30 @@ impl FileBuffer {
         let fd = file.as_raw_fd();
         FileBuffer::from_filedes(fd)
     }
+    pub fn copy_from_slice(s: &[u8]) -> io::Result<FileBuffer> {
+        let length = s.len();
+        if length == 0 {
+            return Ok(FileBuffer{length: 0, buffer: ptr::null()});
+        }
+        let buffer = unsafe {
+            let p = libc::mmap(
+                ptr::null_mut(),
+                length as usize,
+                libc::PROT_READ|libc::PROT_WRITE,
+                libc::MAP_PRIVATE|libc::MAP_ANONYMOUS,
+                -1,
+                0
+            );
+            if p == libc::MAP_FAILED {
+                Err(io::Error::new(io::ErrorKind::InvalidData, "Unable to map CDB file"))
+            } else {
+                libc::memcpy(p, s.as_ptr() as *const libc::c_void, length);
+                Ok(p as *const u8)
+            }
+        }?;
+        Ok(FileBuffer{length, buffer})
+    }
     pub fn from_filedes(fd: libc::c_int) -> io::Result<FileBuffer> {
-        let page_size = unsafe { libc::sysconf(libc::_SC_PAGESIZE) as usize };
         let length = unsafe {
             let stat=[0u8;size_of::<libc::stat>()];
             let mut stat=transmute(stat);
@@ -40,7 +60,7 @@ impl FileBuffer {
             }
         }?;
         if length == 0 {
-            return Ok(FileBuffer{length: 0, buffer: ptr::null(), page_size});
+            return Ok(FileBuffer{length: 0, buffer: ptr::null()});
         }
         let buffer = unsafe {
             let p = libc::mmap(
@@ -57,7 +77,7 @@ impl FileBuffer {
                 Ok(p as *const u8)
             }
         }?;
-        Ok(FileBuffer{length, buffer, page_size})
+        Ok(FileBuffer{length, buffer})
     }
     pub fn len(&self) -> usize {
         self.length

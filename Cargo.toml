@@ -10,14 +10,11 @@ edition = "2024"
 
 [dependencies]
 libc = { version = "0.2.178", default-features = false }
-no_std_io = { version = "0.6.0", default-features = false, features = [ "std" ] }
+no_std_io = { version = "0.6.0", default-features = false }
 
 [features]
 std = []
 default = ["std"]
-
-[dev-dependencies]
-criterion = "0.2"
 
 [[bench]]
 name = "cdb"
