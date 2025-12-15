@@ -1,20 +1,19 @@
 [package]
-name = "cdb"
-version = "0.6.0"
-authors = ["Bruce Guenter <bruce@untroubled.org>"]
+name = "tumu-cdb"
+version = "0.1.0"
+authors = ["Alex King <alex@king.net.nz>"]
 description = "Pure Rust library to read and write CDB files"
-homepage = "https://github.com/bruceg/cdb-rs"
-repository = "https://github.com/bruceg/cdb-rs"
+repository = "https://gitlab.com/alexkingnz/tumu-cdb/"
 readme = "README.md"
-license = "Unlicense"
+license = "GPLv3+"
 edition = "2024"
 
 [dependencies]
-filebuffer = { version = "1", optional = true }
 libc = { version = "0.2.178", default-features = false }
+no_std_io = { version = "0.6.0", default-features = false, features = [ "std" ] }
 
 [features]
-std = ["dep:filebuffer"]
+std = []
 default = ["std"]
 
 [dev-dependencies]

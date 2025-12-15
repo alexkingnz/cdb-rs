@@ -1,14 +1,27 @@
-use std::cmp::max;
-use std::fs;
-use std::io;
-use std::io::prelude::*;
-use std::iter;
-use std::path;
-use std::string;
+#[cfg(feature = "std")]
+use std::{
+    fs,
+    fs::File,
+    io,
+    io::prelude::*,
+    path,
+    string,
+};
 
+#[cfg(not(feature = "std"))]
+use no_std_io::io::{self, Result, Write, Seek};
+
+use core::{
+    cmp::max,
+    iter,
+};
+
+#[cfg(not(feature = "std"))]
+use crate::{vec, Vec};
 use crate::hash::hash;
 use crate::uint32;
 
+#[cfg(feature = "std")]
 pub use std::io::Result;
 
 #[derive(Clone, Copy, Debug)]
@@ -24,7 +37,7 @@ impl HashPos {
 }
 
 fn err_toobig<T>() -> Result<T> {
-    Err(io::Error::new(io::ErrorKind::Other, "File too big"))
+    Err(io::Error::new(io::ErrorKind::InvalidInput, "File too big"))
 }
 
 /// Base interface for making a CDB file.
@@ -34,30 +47,49 @@ fn err_toobig<T>() -> Result<T> {
 /// ```no_run
 /// fn main() -> std::io::Result<()> {
 ///     let file = std::fs::File::create("temporary.cdb")?;
-///     let mut cdb = cdb::CDBMake::new(file)?;
+///     let mut cdb = tumu_cdb::CDBMake::new(file)?;
 ///     cdb.add(b"one", b"Hello,")?;
 ///     cdb.add(b"two", b"world!")?;
 ///     cdb.finish()?;
 ///     Ok(())
 /// }
 /// ```
-pub struct CDBMake {
+///
+/// # no_std example
+///
+/// ```
+/// use libc;
+/// use no_std_io::io;
+/// fn main() -> io::Result<()> {
+///     let mut cdb = tumu_cdb::CDBMake::new(io::Cursor::new(Vec::new()))?;
+///     cdb.add(b"one", b"Hello,")?;
+///     cdb.add(b"two", b"world!")?;
+///     let v = cdb.finish()?.into_inner();
+///     let path = c"temporary.cdb".to_bytes().as_ptr() as *const libc::c_char;
+///     unsafe {
+///         let fd = libc::open(path, libc::O_RDWR) ;
+///         libc::write(fd, v.as_ptr() as *const libc::c_void, v.len());
+///         libc::close(fd);
+///     }
+///     Ok(())
+/// }
+/// ```
+pub struct CDBMake<T: Write + Seek> {
     entries: Vec<Vec<HashPos>>,
     pos: u32,
-    file: io::BufWriter<fs::File>,
+    file: T,
 }
 
-impl CDBMake {
+impl<T: Write + Seek + core::fmt::Debug> CDBMake<T> {
     /// Create a new CDB maker.
-    pub fn new(file: fs::File) -> Result<CDBMake> {
-        let mut w = io::BufWriter::new(file);
+    pub fn new(mut file: T) -> Result<CDBMake<T>> {
         let buf = [0; 2048];
-        w.seek(io::SeekFrom::Start(0))?;
-        w.write(&buf)?;
+        file.seek(io::SeekFrom::Start(0))?;
+        file.write(&buf)?;
         Ok(CDBMake {
             entries: iter::repeat(vec![]).take(256).collect::<Vec<_>>(),
             pos: 2048,
-            file: w,
+            file,
         })
     }
 
@@ -99,13 +131,9 @@ impl CDBMake {
         self.add_end(key.len() as u32, data.len() as u32, hash(&key[..]))
     }
 
-    /// Set the permissions on the underlying file.
-    pub fn set_permissions(&self, perm: fs::Permissions) -> Result<()> {
-        self.file.get_ref().set_permissions(perm)
-    }
 
     /// Finish writing to the CDB file and flush its contents.
-    pub fn finish(mut self) -> Result<()> {
+    pub fn finish(mut self) -> Result<T> {
         let mut buf = [0; 8];
 
         let maxsize = self.entries.iter().fold(1, |acc, e| max(acc, e.len() * 2));
@@ -145,9 +173,18 @@ impl CDBMake {
         self.file.seek(io::SeekFrom::Start(0))?;
         self.file.write(&header)?;
         self.file.flush()?;
-        Ok(())
+        Ok(self.file)
     }
 }
+
+#[cfg(feature = "std")]
+impl CDBMake<File> {
+    /// Set the permissions on the underlying file.
+    pub fn set_permissions(&self, perm: fs::Permissions) -> Result<()> {
+        self.file.set_permissions(perm)
+    }
+}
+
 
 /// A CDB file writer which handles atomic updating.
 ///
@@ -160,7 +197,7 @@ impl CDBMake {
 /// # Example
 ///
 /// ```no_run
-/// use cdb::CDBWriter;
+/// use tumu_cdb::CDBWriter;
 ///
 /// fn main() -> std::io::Result<()> {
 ///     let mut cdb = CDBWriter::create("temporary.cdb")?;
@@ -170,12 +207,14 @@ impl CDBMake {
 /// }
 /// ```
 
+#[cfg(feature = "std")]
 pub struct CDBWriter {
     dstname: String,
     tmpname: String,
-    cdb: Option<CDBMake>,
+    cdb: Option<CDBMake<File>>,
 }
 
+#[cfg(feature = "std")]
 impl CDBWriter {
     /// Safely create a new CDB file.
     ///
@@ -185,10 +224,9 @@ impl CDBWriter {
     }
 
     /// Safely create a new CDB file, using a specific suffix for the temporary file.
-    pub fn with_suffix<P: AsRef<path::Path> + string::ToString>(
-        filename: P,
-        suffix: &str,
-    ) -> Result<CDBWriter> {
+    pub fn with_suffix<P>(filename: P, suffix: &str) -> Result<CDBWriter>
+        where P: AsRef<path::Path> + string::ToString
+    {
         let mut tmpname = filename.to_string();
         tmpname.push_str(suffix);
         CDBWriter::with_filenames(filename, &tmpname)
@@ -198,13 +236,11 @@ impl CDBWriter {
     ///
     /// Note that the temporary file name must be on the same filesystem
     /// as the destination, or else the final rename will fail.
-    pub fn with_filenames<
+    pub fn with_filenames<P, Q>(filename: P, tmpname: Q) -> Result<CDBWriter>
+        where
         P: AsRef<path::Path> + string::ToString,
         Q: AsRef<path::Path> + string::ToString,
-    >(
-        filename: P,
-        tmpname: Q,
-    ) -> Result<CDBWriter> {
+    {
         let file = fs::File::create(&tmpname)?;
         let cdb = CDBMake::new(file)?;
         Ok(CDBWriter {
@@ -236,6 +272,7 @@ impl CDBWriter {
     }
 }
 
+#[cfg(feature = "std")]
 impl Drop for CDBWriter {
     #[allow(unused_must_use)]
     fn drop(&mut self) {

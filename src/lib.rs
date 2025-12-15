@@ -1,5 +1,5 @@
 //! This crate provides support for reading and writing
-//! [CDB](https://cr.yp.to/cdb.html) files. A CDB is a "constant
+//! [CDB](https://cbd.cr.yp.to/) files. A CDB is a "constant
 //! database" that acts as an on-disk associative array mapping keys to
 //! values, allowing multiple values for each key. It provides for fast
 //! lookups and low overheads. A constant database has no provision for
@@ -10,20 +10,16 @@
 //! Reading a set of records:
 //!
 //! ```
-//! #[cfg(feature = "std")]
-//! let cdb = cdb::CDB::open("tests/test1.cdb").unwrap();
-//! #[cfg(not(feature = "std"))]
-//! let cdb = {
-//!     use std::os::fd::IntoRawFd;
-//!     use std::fs::File;
-//!     // Note: you would normally get a file descriptor another way in a
-//!     // no_std environment.  The next example below uses libc as an example.
-//!     let file = File::open("tests/test1.cdb").unwrap();
-//!     cdb::CDB::from_filedes(file.into_raw_fd()).unwrap()
-//! };
+//! # #[cfg(not(feature = "std"))]
+//! # fn main() {}
+//! # #[cfg(feature = "std")]
+//! fn main() -> std::io::Result<()> {
+//!     let cdb = tumu_cdb::CDB::open("tests/test1.cdb")?;
 //!
-//! for result in cdb.find(b"one") {
-//!     println!("{:?}", result.unwrap());
+//!     for result in cdb.find(b"one") {
+//!         println!("{:?}", result);
+//!     }
+//!     Ok(())
 //! }
 //! ```
 //!
@@ -34,13 +30,33 @@
 //! # fn main() {}
 //! # #[cfg(feature = "std")]
 //! fn main() -> std::io::Result<()> {
-//!     let mut cdb = cdb::CDBWriter::create("temporary.cdb")?;
+//!     let mut cdb = tumu_cdb::CDBWriter::create("temporary.cdb")?;
 //!     cdb.add(b"one", b"Hello, ")?;
 //!     cdb.add(b"one", b"world!\n")?;
 //!     cdb.add(b"two", &[1, 2, 3, 4])?;
 //!     cdb.finish()?;
 //!     Ok(())
 //! }
+//! ```
+//!
+//! Reading a set of records (no_std):
+//!
+//! ```
+//! # #[cfg(feature = "std")]
+//! # fn main() {}
+//! # #[cfg(not(feature = "std"))]
+//! fn main() {
+//!     let cdb = {
+//!         use std::os::fd::IntoRawFd;
+//!         use std::fs::File;
+//!         let file = File::open("tests/test1.cdb").unwrap();
+//!         tumu_cdb::CDB::from_filedes(file.into_raw_fd()).unwrap()
+//!     };
+//!
+//!     for result in cdb.find(b"one") {
+//!         println!("{:?}", result);
+//!     }
+//! };
 //! ```
 //!
 //! Creating a database (using no_std):
@@ -50,8 +66,11 @@
 //! # fn main() {}
 //! # #[cfg(not(feature = "std"))]
 //! fn main() {
-//!     let mut v = Vec::new();
-//!     let mut cdb = cdb::CDBMake::new(&mut v);
+//!     extern crate alloc;
+//!     use alloc::vec::Vec;
+//!     use no_std_io::io::{Cursor, Write};
+//!     let mut f = Cursor::new(Vec::new());
+//!     let mut cdb = tumu_cdb::CDBMake::new(&mut f).unwrap();
 //!     cdb.add(b"one", b"Hello, ").unwrap();
 //!     cdb.add(b"one", b"world!\n").unwrap();
 //!     cdb.add(b"two", &[1, 2, 3, 4]).unwrap();
@@ -61,7 +80,7 @@
 //!
 //! # References
 //!
-//!  * [D. J. Bernstein's original software](https://cr.yp.to/cdb.html)
+//!  * [D. J. Bernstein's original software](https://cdb.cr.yp.to/)
 //!  * [Constant Database (cdb) Internals](https://www.unixuser.org/~euske/doc/cdbinternals/index.html)
 //!  * [Wikipedia](https://en.wikipedia.org/wiki/Cdb_(software))
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -71,11 +90,9 @@ compile_error!("The Standard library must be enabled for Windows.");
 
 
 mod hash;
-#[cfg(not(feature = "std"))]
-mod nostd;
+mod filebuffer;
 mod reader;
 mod uint32;
-#[cfg_attr(not(feature = "std"), path = "writer_nostd.rs")]
 mod writer;
 
 #[cfg(not(feature = "std"))]

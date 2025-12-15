@@ -1,5 +1,7 @@
-extern crate cdb;
+extern crate tumu_cdb;
+#[cfg(feature = "std")]
 use std::fs;
+use tumu_cdb as cdb;
 
 macro_rules! noerr {
     ( $e:expr ) => {
@@ -7,6 +9,22 @@ macro_rules! noerr {
             panic!("{}", x);
         }
     };
+}
+
+#[cfg(not(feature = "std"))]
+#[test]
+fn test_make() {
+    extern crate alloc;
+    use alloc::vec::Vec;
+    use no_std_io::io::Cursor;
+
+    let mut cdb = cdb::CDBMake::new(Cursor::new(Vec::new())).unwrap();
+    noerr!(cdb.add(b"one", b"Hello"));
+    noerr!(cdb.add(b"two", b"Goodbye"));
+    noerr!(cdb.add(b"one", b", World!"));
+    noerr!(cdb.add(b"this key will be split across two reads", b"Got it."));
+    noerr!(cdb.finish());
+
 }
 
 #[cfg(feature = "std")]
@@ -22,17 +40,16 @@ fn test_make() {
     noerr!(cdb.finish());
 
     let cdb = cdb::CDB::open(filename).unwrap();
-    assert_eq!(cdb.find(b"two").next().unwrap().unwrap(), b"Goodbye");
+    assert_eq!(cdb.find(b"two").next().unwrap(), b"Goodbye");
     assert_eq!(
         cdb.find(b"this key will be split across two reads")
             .next()
-            .unwrap()
             .unwrap(),
         b"Got it."
     );
     let mut i = cdb.find(b"one");
-    assert_eq!(i.next().unwrap().unwrap(), b"Hello");
-    assert_eq!(i.next().unwrap().unwrap(), b", World!");
+    assert_eq!(i.next().unwrap(), b"Hello");
+    assert_eq!(i.next().unwrap(), b", World!");
 
     let mut i = cdb.iter();
     let next = i.next().unwrap().unwrap();

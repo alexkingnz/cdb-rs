@@ -1,17 +1,17 @@
 cdb
 ====
 
-[![Crate](https://img.shields.io/crates/v/cdb.svg)](https://crates.io/crates/cdb)
-[![Build Status](https://travis-ci.org/bruceg/cdb-rs.svg?branch=master)](https://travis-ci.org/bruceg/cdb-rs)
-
 This library provides pure Rust support for reading and writing
 [CDB][cdb] files.  A CDB file is a constant key-value on-disk hash
 table, designed for high-speed lookups.
 
-[cdb]: http://cr.yp.to/cdb.html
+This version was forked from Bruce Guenter's public domain version at
+[cdb-rs][cdbrs], adding no_std stupport for UNIX like OSs and the
+interface has changed accordingly.
 
-[Documentation](https://docs.rs/cdb)
+[cdbrs]https://github.com/bruceg/cdb-rs
+[cdb]: https://cdb.cr.yp.to/
 
 ## License
 
-Public Domain
+GPLv3

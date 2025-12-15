@@ -1,30 +1,17 @@
-use crate::{slice, String, ToString};
-use core::error::Error as CoreError;
-use core::fmt::Display as CoreDisplay;
+//! # filebuffer
+//! A wrapper around memmap for fast file reading, with no_std support.
+
+
+#[cfg(feature = "std")]
+use std::{slice, io, fs, os::fd::AsRawFd, path};
+#[cfg(not(feature = "std"))]
+use no_std_io::io;
+#[cfg(not(feature = "std"))]
+use crate::slice;
 use core::mem::transmute;
 use core::ops::Deref;
 use core::ptr;
-use core::result::Result as CoreResult;
 use libc;
-
-#[derive(Debug)]
-pub struct Error(String);
-
-impl Error {
-    pub fn new(s: String) -> Error {
-        Error(s)
-    }
-}
-
-impl CoreDisplay for Error {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl CoreError for Error {}
-
-pub type Result<T> = CoreResult<T, Error>;
 
 #[allow(dead_code)]
 pub struct FileBuffer {
@@ -33,7 +20,15 @@ pub struct FileBuffer {
     length: usize,
 }
 impl FileBuffer {
-    pub fn from_filedes(fd: libc::c_int) -> Result<FileBuffer> {
+    #[cfg(feature = "std")]
+    pub fn open<P: AsRef<path::Path>>(filename: P) -> io::Result<FileBuffer> {
+        let mut open_opts = fs::OpenOptions::new();
+        open_opts.read(true);
+        let file = open_opts.open(filename)?;
+        let fd = file.as_raw_fd();
+        FileBuffer::from_filedes(fd)
+    }
+    pub fn from_filedes(fd: libc::c_int) -> io::Result<FileBuffer> {
         let page_size = unsafe { libc::sysconf(libc::_SC_PAGESIZE) as usize };
         let length = unsafe {
             let stat=[0u8;size_of::<libc::stat>()];
@@ -41,7 +36,7 @@ impl FileBuffer {
             if libc::fstat(fd, &mut stat) == 0 {
                 Ok(stat.st_size as usize)
             } else {
-                Err(Error::new("Unable to access CDB file".to_string()))
+                Err(io::Error::new(io::ErrorKind::NotFound, "Unable to access CDB file"))
             }
         }?;
         if length == 0 {
@@ -57,7 +52,7 @@ impl FileBuffer {
                 0
             );
             if p == libc::MAP_FAILED {
-                Err(Error::new("Unable to map CDB file".to_string()))
+                Err(io::Error::new(io::ErrorKind::InvalidData, "Unable to map CDB file"))
             } else {
                 Ok(p as *const u8)
             }
@@ -97,4 +92,3 @@ impl AsRef<[u8]> for FileBuffer {
         self.deref()
     }
 }
-

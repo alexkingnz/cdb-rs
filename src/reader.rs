@@ -1,22 +1,17 @@
 #[cfg(feature = "std")]
-use filebuffer::FileBuffer;
-use core::cmp::min;
-#[cfg(feature = "std")]
 use std::{io, path};
 #[cfg(not(feature = "std"))]
-use crate::{Vec, vec, ToString};
+use no_std_io::io;
 #[cfg(not(feature = "std"))]
-use crate::nostd::*;
+use crate::{Vec, vec};
+use crate::filebuffer::FileBuffer;
 #[cfg(not(feature = "std"))]
 use libc;
 
 use crate::hash::hash;
 use crate::uint32;
 
-#[cfg(feature = "std")]
-pub use std::io::Result;
-
-const KEYSIZE: usize = 32;
+pub use io::Result;
 
 /// CDB file reader
 ///
@@ -28,13 +23,13 @@ const KEYSIZE: usize = 32;
 ///     use libc;
 ///     let fd = unsafe { libc::open(c"tests/test1.cdb".as_ptr() as *const libc::c_char, libc::O_RDONLY) };
 ///     if fd == -1 {panic!("Unable to open file tests/test1.cdb")}
-///     cdb::CDB::from_filedes(fd).unwrap()
+///     tumu_cdb::CDB::from_filedes(fd).unwrap()
 /// };
 /// #[cfg(feature = "std")]
-/// let cdb = cdb::CDB::open("tests/test1.cdb").unwrap();
+/// let cdb = tumu_cdb::CDB::open("tests/test1.cdb").unwrap();
 ///
 /// for result in cdb.find(b"one") {
-///     println!("{:?}", result.unwrap());
+///     println!("{:?}", result);
 /// }
 /// ```
 pub struct CDB {
@@ -42,16 +37,9 @@ pub struct CDB {
     size: usize,
 }
 
-#[cfg(feature = "std")]
 fn err_badfile<T>() -> Result<T> {
     Err(io::Error::new(io::ErrorKind::Other, "Invalid file format"))
 }
-
-#[cfg(not(feature = "std"))]
-fn err_badfile<T>() -> Result<T> {
-    Err(Error::new("Invalid file format".to_string()))
-}
-
 
 impl CDB {
     /// Opens the named file and returns the CDB reader.
@@ -59,7 +47,7 @@ impl CDB {
     /// # Examples
     ///
     /// ```
-    /// let cdb = cdb::CDB::open("tests/test1.cdb").unwrap();
+    /// let cdb = tumu_cdb::CDB::open("tests/test1.cdb").unwrap();
     /// ```
     #[cfg(feature = "std")]
     pub fn open<P: AsRef<path::Path>>(filename: P) -> Result<CDB> {
@@ -80,14 +68,9 @@ impl CDB {
         Ok(CDB { file, size })
     }
 
-    fn read(&self, buf: &mut [u8], pos: u32) -> Result<usize> {
-        let len = buf.len();
+    fn read(&self, len: usize, pos: u32) -> Option<&[u8]> {
         let pos = pos as usize;
-        if pos + len > self.size {
-            return err_badfile();
-        }
-        buf.copy_from_slice(&self.file[pos..pos + len]);
-        Ok(len)
+        self.file.get(pos..pos + len)
     }
 
     fn hash_table(&self, khash: u32) -> (u32, u32, u32) {
@@ -101,23 +84,11 @@ impl CDB {
         (hpos, hslots, kpos)
     }
 
-    fn match_key(&self, key: &[u8], pos: u32) -> Result<bool> {
-        let mut buf = [0 as u8; KEYSIZE];
-        let mut len = key.len();
-        let mut pos = pos;
-        let mut keypos = 0;
+    /// Match if key is present at pos
+    fn match_key(&self, key: &[u8], pos: u32) -> bool {
+        let len = key.len();
+        self.read(len, pos).map(|x| x == key).unwrap_or(false)
 
-        while len > 0 {
-            let n = min(len, buf.len());
-            self.read(&mut buf[..n], pos)?;
-            if buf[..n] != key[keypos..keypos + n] {
-                return Ok(false);
-            }
-            pos += n as u32;
-            keypos += n;
-            len -= n;
-        }
-        Ok(true)
     }
 
     /// Find the first record with the named key.
@@ -130,15 +101,15 @@ impl CDB {
     ///     use libc;
     ///     let fd = unsafe { libc::open(c"tests/test1.cdb".as_ptr() as *const libc::c_char, libc::O_RDONLY) };
     ///     if fd == -1 {panic!("Unable to open file tests/test1.cdb")}
-    ///     cdb::CDB::from_filedes(fd).unwrap()
+    ///     tumu_cdb::CDB::from_filedes(fd).unwrap()
     /// };
     /// #[cfg(feature = "std")]
-    /// let cdb = cdb::CDB::open("tests/test1.cdb").unwrap();
+    /// let cdb = tumu_cdb::CDB::open("tests/test1.cdb").unwrap();
     /// if let Some(record) = cdb.get(b"one") {
-    ///     println!("{:?}", record.unwrap());
+    ///     println!("{:?}", record);
     /// }
     /// ```
-    pub fn get(&self, key: &[u8]) -> Option<Result<Vec<u8>>> {
+    pub fn get(&self, key: &[u8]) -> Option<&[u8]> {
         self.find(key).next()
     }
 
@@ -153,13 +124,13 @@ impl CDB {
     ///     use libc;
     ///     let fd = unsafe { libc::open(c"tests/test1.cdb".as_ptr() as *const libc::c_char, libc::O_RDONLY) };
     ///     if fd == -1 {panic!("Unable to open file tests/test1.cdb")}
-    ///     cdb::CDB::from_filedes(fd).unwrap()
+    ///     tumu_cdb::CDB::from_filedes(fd).unwrap()
     /// };
     /// #[cfg(feature = "std")]
-    /// let cdb = cdb::CDB::open("tests/test1.cdb").unwrap();
+    /// let cdb = tumu_cdb::CDB::open("tests/test1.cdb").unwrap();
     ///
     /// for result in cdb.find(b"one") {
-    ///     println!("{:?}", result.unwrap());
+    ///     println!("{:?}", result);
     /// }
     /// ```
     pub fn find(&self, key: &[u8]) -> CDBValueIter<'_> {
@@ -176,10 +147,10 @@ impl CDB {
     ///     use libc;
     ///     let fd = unsafe { libc::open(c"tests/test1.cdb".as_ptr() as *const libc::c_char, libc::O_RDONLY) };
     ///     if fd == -1 {panic!("Unable to open file tests/test1.cdb")}
-    ///     cdb::CDB::from_filedes(fd).unwrap()
+    ///     tumu_cdb::CDB::from_filedes(fd).unwrap()
     /// };
     /// #[cfg(feature = "std")]
-    /// let cdb = cdb::CDB::open("tests/test1.cdb").unwrap();
+    /// let cdb = tumu_cdb::CDB::open("tests/test1.cdb").unwrap();
     /// for result in cdb.iter() {
     ///     let (key, value) = result.unwrap();
     ///     println!("{:?} => {:?}", key, value);
@@ -204,8 +175,6 @@ pub struct CDBValueIter<'a> {
     kpos: u32,
     hpos: u32,
     hslots: u32,
-    dpos: u32,
-    dlen: u32,
 }
 
 impl<'a> CDBValueIter<'a> {
@@ -221,37 +190,20 @@ impl<'a> CDBValueIter<'a> {
             kpos: kpos,
             hpos: hpos,
             hslots: hslots,
-            dpos: 0,
-            dlen: 0,
         }
     }
 
-    fn read_vec(&self) -> Result<Vec<u8>> {
-        let mut result = vec![0; self.dlen as usize];
-        self.cdb.read(&mut result[..], self.dpos)?;
-        Ok(result)
-    }
-}
-
-macro_rules! iter_try {
-    ( $e:expr ) => {
-        match $e {
-            Err(x) => {
-                return Some(Err(x));
-            }
-            Ok(y) => y,
-        }
-    };
 }
 
 impl<'a> Iterator for CDBValueIter<'a> {
-    type Item = Result<Vec<u8>>;
+    type Item = &'a[u8];
     fn next(&mut self) -> Option<Self::Item> {
         while self.kloop < self.hslots {
-            let mut buf = [0 as u8; 8];
-            let kpos = self.kpos;
-            iter_try!(self.cdb.read(&mut buf, kpos));
-            let (khash, pos) = uint32::unpack2(&buf);
+            //let mut buf = [0 as u8; 8];
+            //let kpos = self.kpos;
+            //iter_try!(self.cdb.read(&mut buf, kpos));
+            let Some(p) = self.cdb.read(8, self.kpos) else { return None };
+            let (khash, pos) = uint32::unpack2(p);
             if pos == 0 {
                 return None;
             }
@@ -261,13 +213,12 @@ impl<'a> Iterator for CDBValueIter<'a> {
                 self.kpos = self.hpos;
             }
             if khash == self.khash {
-                iter_try!(self.cdb.read(&mut buf, pos));
-                let (klen, dlen) = uint32::unpack2(&buf);
+                let Some(p) = self.cdb.read(8, pos) else { return None };
+                let (klen, dlen) = uint32::unpack2(p);
                 if klen as usize == self.key.len() {
-                    if iter_try!(self.cdb.match_key(&self.key[..], pos + 8)) {
-                        self.dlen = dlen;
-                        self.dpos = pos + 8 + self.key.len() as u32;
-                        return Some(self.read_vec());
+                    if self.cdb.match_key(&self.key[..], pos + 8) {
+                        let dpos = pos + 8 + self.key.len() as u32;
+                        return self.cdb.read(dlen as usize, dpos);
                     }
                 }
             }
