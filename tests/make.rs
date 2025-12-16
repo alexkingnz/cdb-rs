@@ -1,3 +1,6 @@
+// Copyright 2025 Alex King
+// SPDX-License-Identifier: LGPL-3.0-or-later
+
 extern crate tumu_cdb;
 #[cfg(feature = "std")]
 use std::fs;
@@ -16,14 +19,17 @@ const FILENAME: &str = "tests/make.cdb";
 
 #[test]
 fn test_make() {
-    #[cfg(not(feature = "std"))]
-    let mut cdb = cdb::CDBMake::new(cdb::vecbuf::VecBuf::new()).unwrap();
     #[cfg(feature = "std")]
     let mut cdb = cdb::CDBWriter::create(FILENAME).unwrap();
+    #[cfg(not(feature = "std"))]
+    let mut cdb = cdb::CDBMake::new(cdb::vecbuf::VecBuf::new()).unwrap();
     noerr!(cdb.add(b"one", b"Hello"));
     noerr!(cdb.add(b"two", b"Goodbye"));
     noerr!(cdb.add(b"one", b", World!"));
     noerr!(cdb.add(b"this key will be split across two reads", b"Got it."));
+    #[cfg(feature = "std")]
+    noerr!(cdb.finish());
+    #[cfg(not(feature = "std"))]
     let v = noerr!(cdb.finish());
 
     #[cfg(not(feature = "std"))]

@@ -1,11 +1,11 @@
 [package]
-name = "tumu-cdb"
+name = "tumu_cdb"
 version = "0.1.0"
 authors = ["Alex King <alex@king.net.nz>"]
 description = "Pure Rust library to read and write CDB files"
 repository = "https://gitlab.com/alexkingnz/tumu-cdb/"
 readme = "README.md"
-license = "GPLv3+"
+license = "LGPLv3.0-or-later"
 edition = "2024"
 
 [dependencies]

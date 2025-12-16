@@ -1,4 +1,19 @@
+// Copyright 2025 Alex King
+// SPDX-License-Identifier: LGPL-3.0-or-later
+//
+//! # A `Vec<u8>` with file like Read and Write, with `#![no_std]` support.
+//!
+//! A wrapper around a `Vec<u8>` that allows file like behavior (e.g. Read,
+//! Write and Seek traits) in a `#![no_std]` environment (using traits from the
+//! `no_std_io` crate.)
+//!
+//! This is intended to be equivalent to an `io::Cursor<Vec<u8>>` from the
+//! standard library.  If the `std` feature it on, it builds on standard
+//! library types and errors, else it builds on `no_std_io::io` types and
+//! errors.
+
 #![allow(dead_code)]
+/// `Vec<u8>` wrapper with `File`-like interface.
 #[cfg(feature = "std")]
 pub use vecbuf_std::VecBuf;
 #[cfg(not(feature = "std"))]
@@ -18,9 +33,11 @@ mod vecbuf_nostd {
         pos: usize,
     }
     impl VecBuf {
+        /// Constructs a new, empty `VecBuf`
         pub const fn new() -> VecBuf {
             VecBuf { pos: 0, inner: Vec::new() }
         }
+        /// Returns the wrapped `Vec<u8>`, consuming self.
         pub fn into_inner(self) -> Vec<u8> {
             self.inner
         }
@@ -30,6 +47,7 @@ mod vecbuf_nostd {
         pub const fn get_mut(&mut self) -> &mut Vec<u8> {
             &mut self.inner
         }
+        /// Returns the current position of this cursor.
         pub const fn position(&self) -> u64 {
             self.pos as u64
         }
@@ -93,8 +111,23 @@ mod vecbuf_std {
     #[derive(Debug)]
     pub struct VecBuf(io::Cursor<Vec<u8>>);
     impl VecBuf {
+        /// Constructs a new, empty `VecBuf`
         pub const fn new() -> VecBuf {
             VecBuf(io::Cursor::new(Vec::new()))
+        }
+        /// Returns the wrapped `Vec<u8>`, consuming self.
+        pub fn into_inner(self) -> Vec<u8> {
+            self.0.into_inner()
+        }
+        pub const fn get_ref(&self) -> &Vec<u8> {
+            self.0.get_ref()
+        }
+        pub const fn get_mut(&mut self) -> &mut Vec<u8> {
+            self.0.get_mut()
+        }
+        /// Returns the current position of this cursor.
+        pub const fn position(&self) -> u64 {
+            self.0.position()
         }
     }
     impl io::Read for VecBuf {

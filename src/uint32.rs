@@ -1,3 +1,6 @@
+// Contributions from Bruce Guenter and Alex King
+// This file is in the public domain
+
 pub fn unpack(data: &[u8]) -> u32 {
     u32::from_le_bytes(data[0..4].try_into().unwrap())
 }

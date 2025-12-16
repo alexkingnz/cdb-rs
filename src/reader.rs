@@ -1,3 +1,5 @@
+// Copyright 2025 Alex King
+// SPDX-License-Identifier: LGPL-3.0-or-later
 #[cfg(feature = "std")]
 use std::{io, path};
 #[cfg(not(feature = "std"))]
@@ -13,7 +15,7 @@ use crate::uint32;
 
 pub use io::Result;
 
-/// CDB file reader
+/// Memory-mapped CDB reader.
 ///
 /// # Example
 ///

@@ -1,6 +1,7 @@
-//! # filebuffer
-//! A wrapper around memmap for fast file reading, with no_std support.
-
+// Copyright 2025 Alex King
+// SPDX-License-Identifier: LGPL-3.0-or-later
+//
+//! # A wrapper around memmap for fast file reading, with `#![no_std]` support.
 
 #[cfg(feature = "std")]
 use std::{slice, io, fs, os::fd::AsRawFd, path};
@@ -13,11 +14,13 @@ use core::ops::Deref;
 use core::ptr;
 use libc;
 
+/// Type representing the memory mapped file, accessible as a slice
 pub struct FileBuffer {
     buffer: *const u8,
     length: usize,
 }
 impl FileBuffer {
+    /// Returns the FileBuffer after mapping the file at `path` into memory.
     #[cfg(feature = "std")]
     pub fn open<P: AsRef<path::Path>>(filename: P) -> io::Result<FileBuffer> {
         let mut open_opts = fs::OpenOptions::new();
@@ -26,6 +29,8 @@ impl FileBuffer {
         let fd = file.as_raw_fd();
         FileBuffer::from_filedes(fd)
     }
+    /// Returns a FileBuffer after copying the slice into an anonymus memory
+    /// mapped region.  Probably only useful for testing.
     pub fn copy_from_slice(s: &[u8]) -> io::Result<FileBuffer> {
         let length = s.len();
         if length == 0 {
@@ -49,6 +54,7 @@ impl FileBuffer {
         }?;
         Ok(FileBuffer{length, buffer})
     }
+    /// Returns a FileBuffer using the given file descriptor.
     pub fn from_filedes(fd: libc::c_int) -> io::Result<FileBuffer> {
         let length = unsafe {
             let stat=[0u8;size_of::<libc::stat>()];
@@ -79,6 +85,7 @@ impl FileBuffer {
         }?;
         Ok(FileBuffer{length, buffer})
     }
+    /// Length of the mapped region.
     pub fn len(&self) -> usize {
         self.length
     }

@@ -1,3 +1,6 @@
+// Copyright 2025 Alex King
+// SPDX-License-Identifier: LGPL-3.0-or-later
+
 extern crate tumu_cdb;
 #[cfg(not(feature = "std"))]
 use std::os::fd::IntoRawFd;

@@ -1,3 +1,6 @@
+// Copyright 2025 Alex King
+// SPDX-License-Identifier: LGPL-3.0-or-later
+
 #[cfg(feature = "std")]
 use std::{
     fs,

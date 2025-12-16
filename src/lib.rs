@@ -1,9 +1,16 @@
-//! This crate provides support for reading and writing
+// Copyright 2025 Alex King
+// SPDX-License-Identifier: LGPL-3.0-or-later
+//
+//! This crate provides support for reading and writing 32 bit
 //! [CDB](https://cbd.cr.yp.to/) files. A CDB is a "constant
 //! database" that acts as an on-disk associative array mapping keys to
 //! values, allowing multiple values for each key. It provides for fast
 //! lookups and low overheads. A constant database has no provision for
 //! updating, only rewriting from scratch.
+//!
+//! This version is notable because it is usable in (some) `#![no_std]`
+//! environments.  
+//! 
 //!
 //! # Examples
 //!
@@ -67,23 +74,26 @@
 //! # #[cfg(not(feature = "std"))]
 //! fn main() {
 //!     let mut f = tumu_cdb::vecbuf::VecBuf::new();
-//!     let mut cdb = tumu_cdb::CDBMake::new(&mut f).unwrap();
+//!     let mut cdb = tumu_cdb::CDBMake::new(f).unwrap();
 //!     cdb.add(b"one", b"Hello, ").unwrap();
 //!     cdb.add(b"one", b"world!\n").unwrap();
 //!     cdb.add(b"two", &[1, 2, 3, 4]).unwrap();
-//!     cdb.finish().unwrap();
+//!     let v: tumu_cdb::vecbuf::VecBuf = cdb.finish().unwrap();
+//!     let _v: Vec<u8> = v.into_inner();
+//!     // arrange to write v to a file
 //! }
 //! ```
 //!
 //! # References
 //!
 //!  * [D. J. Bernstein's original software](https://cdb.cr.yp.to/)
+//!  * [Bruce Guenter's rust implementation](https://github.com/bruceg/cdb-rs).  This version was originally based on Bruce's public domain work.
 //!  * [Constant Database (cdb) Internals](https://www.unixuser.org/~euske/doc/cdbinternals/index.html)
 //!  * [Wikipedia](https://en.wikipedia.org/wiki/Cdb_(software))
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod hash;
-mod filebuffer;
+pub mod filebuffer;
 mod reader;
 mod uint32;
 mod writer;
